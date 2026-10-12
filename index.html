@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;height:100%}</style>
+</head><body>
+<title>Life Grid</title>
+<style>
+/* Layout: one-screen lab bench — counters on top, the petri-dish grid in the middle, transport controls and tools below. Single committed look: dark lab glass with glowing cells. */
+:root{
+  --bg:#0b1014;        /* dark glass */
+  --panel:#141c22;
+  --line:#24323c;
+  --ink:#e7f2f0;
+  --muted:#8ea3a6;
+  --cell:#6ff0c2;      /* newborn glow */
+  --accent:#6ff0c2;
+  --display:"Space Mono", ui-monospace, Menlo, monospace;
+  --body:"Figtree", system-ui, -apple-system, sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px;padding-inline:16px;box-sizing:border-box;max-width:680px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:1.25rem;margin:0;color:var(--accent)}
+h1 .ver{font-family:var(--body);font-size:.6rem;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.stats{display:flex;gap:14px;font-family:var(--display);font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+canvas{display:block;border-radius:10px;touch-action:none;box-shadow:0 0 0 2px var(--line),0 0 40px rgba(111,240,194,.06)}
+.row{display:flex;gap:8px;align-items:center}
+.row.split{justify-content:space-between}
+button,select{font:600 .9rem var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;touch-action:manipulation}
+button.play{background:var(--accent);color:#06221a;border-color:var(--accent);min-width:84px}
+button:disabled{opacity:.35}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.grow{flex:1;min-width:0}
+.speed{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.speed label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.size{display:flex;align-items:center;gap:6px}
+.size span{font-size:.8rem;color:var(--muted);min-width:56px;text-align:center}
+.size b{color:var(--ink);font-family:var(--display)}
+.rules{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.4}
+.helpbtn{width:34px;height:34px;padding:0;border-radius:50%;font-family:var(--display);font-weight:700;color:var(--accent)}
+.head-right{display:flex;align-items:center;gap:12px}
+.sheet{position:fixed;inset:0;background:rgba(5,8,10,.7);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.panel{background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;width:100%;max-width:680px;max-height:88%;display:flex;flex-direction:column;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.panel-head h2{font-family:var(--display);font-size:1.1rem;margin:0;color:var(--accent)}
+.help{overflow:auto;padding:4px 16px 20px;line-height:1.5;font-size:.93rem}
+.help h3{font-family:var(--display);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.help p{margin:0 0 8px;max-width:62ch}
+.help ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px}
+.help b{color:var(--ink)}
+.rulecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.rulecard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;gap:10px;align-items:center}
+.rulecard p{margin:0;font-size:.82rem;color:var(--muted)}
+.rulecard p b{display:block;font-size:.9rem}
+.mini{display:grid;grid-template-columns:repeat(3,14px);grid-template-rows:repeat(3,14px);gap:2px;flex-shrink:0}
+.mini i{background:#1c2830;border-radius:3px}
+.mini i.on{background:var(--cell)}
+.mini i.me{outline:2px solid #ffd166;outline-offset:-2px}
+.mini i.me.on{background:var(--cell)}
+.pats{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem}
+.pats dt{font-weight:600;color:var(--ink)}
+.pats dd{margin:0;color:var(--muted)}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Figtree:wght@400;600&display=swap">
+
+<div class="app">
+  <header>
+    <h1>Life Grid<span class="ver">v1.1</span></h1>
+    <div class="head-right">
+      <div class="stats">
+        <span>Gen <b id="gen">0</b></span>
+        <span>Alive <b id="alive">0</b></span>
+      </div>
+      <button class="helpbtn" id="helpBtn" aria-label="Help and rules">?</button>
+    </div>
+  </header>
+  <div class="stage" id="stage"><canvas id="c" aria-label="Life grid. Tap or drag to draw cells."></canvas></div>
+  <div class="row">
+    <button class="play" id="playBtn">Play</button>
+    <button id="stepBtn">Step</button>
+    <div class="speed"><label for="speed">Speed</label><input type="range" id="speed" min="1" max="60" value="10"><b id="speedVal" style="font-family:var(--display);font-size:.8rem;min-width:3.6em">10/s</b></div>
+  </div>
+  <div class="row">
+    <select id="pattern" class="grow" aria-label="Add a pattern">
+      <option value="">Add a pattern…</option>
+      <option value="glider">Glider</option>
+      <option value="lwss">Spaceship</option>
+      <option value="gun">Glider gun</option>
+      <option value="pulsar">Pulsar</option>
+      <option value="pentadecathlon">Pentadecathlon</option>
+      <option value="rpent">R-pentomino</option>
+      <option value="acorn">Acorn</option>
+      <option value="diehard">Diehard</option>
+    </select>
+    <button id="randBtn">Random</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+  <div class="row split">
+    <div class="size">
+      <button id="smaller" aria-label="Fewer, bigger squares">−</button>
+      <span>Grid <b id="sizeVal">40</b></span>
+      <button id="bigger" aria-label="More, smaller squares">+</button>
+    </div>
+    <div class="rules">Live: 2–3 neighbors stay · Dead: 3 neighbors are born<br>Edges wrap around</div>
+  </div>
+</div>
+
+<div class="sheet" id="helpSheet" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="panel">
+    <div class="panel-head"><h2 id="helpTitle">How Life works</h2><button id="helpClose">Close</button></div>
+    <div class="help">
+      <p>The grid is a world of squares. Each square is either <b>alive</b> (glowing) or <b>dead</b> (dark). Every generation, all squares look at their <b>8 neighbors</b>, the squares touching them on the sides and corners, and change at the same moment by three rules.</p>
+
+      <h3>The three rules</h3>
+      <div class="rulecards">
+        <div class="rulecard">
+          <div class="mini" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i class="me on"></i><i class="on"></i><i></i><i></i><i></i></div>
+          <p><b>Survival</b>A live square with 2 or 3 live neighbors stays alive.</p>
+        </div>
+        <div class="rulecard">
+          <div class="mini" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="me on"></i><i class="on"></i><i></i><i></i><i></i></div>
+          <p><b>Loneliness</b>With 0 or 1 live neighbors, a live square dies.</p>
+        </div>
+        <div class="rulecard">
+          <div class="mini" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="me on"></i><i></i><i></i><i></i><i></i></div>
+          <p><b>Crowding</b>With 4 or more live neighbors, a live square dies.</p>
+        </div>
+        <div class="rulecard">
+          <div class="mini" aria-hidden="true"><i class="on"></i><i></i><i class="on"></i><i></i><i class="me"></i><i></i><i></i><i class="on"></i><i></i></div>
+          <p><b>Birth</b>A dead square with exactly 3 live neighbors comes to life.</p>
+        </div>
+      </div>
+      <p style="margin-top:10px">The outlined square in each picture is the one being decided. The grid wraps around: a square on the right edge counts the left edge as its neighbor, so patterns that drift off one side come back on the other.</p>
+
+      <h3>Controls</h3>
+      <ul>
+        <li><b>Play / Pause</b> runs the world. <b>Step</b> moves forward one generation. The space bar also plays and pauses, and S or → steps.</li>
+        <li><b>Speed</b> sets how many generations run each second, from 1 to 60.</li>
+        <li><b>Tap or drag</b> on the grid to draw live squares. Start a drag on a live square to erase instead.</li>
+        <li><b>Add a pattern</b> places a famous shape in the middle of the grid.</li>
+        <li><b>Random</b> fills about a quarter of the squares. <b>Clear</b> empties the grid and pauses.</li>
+        <li><b>Grid − / +</b> changes how many squares fit across (16 to 120). Your pattern stays centered.</li>
+        <li><b>Gen</b> counts generations since the last Random or Clear. <b>Alive</b> counts live squares.</li>
+        <li><b>Color</b> shows age: new squares glow mint green and turn blue the longer they survive.</li>
+      </ul>
+
+      <h3>The patterns</h3>
+      <dl class="pats">
+        <dt>Glider</dt><dd>Five squares that walk diagonally across the grid forever.</dd>
+        <dt>Spaceship</dt><dd>A slightly bigger traveler that moves straight sideways.</dd>
+        <dt>Glider gun</dt><dd>A machine that fires a new glider every 30 generations.</dd>
+        <dt>Pulsar</dt><dd>A large symmetric shape that flashes through 3 forms and repeats.</dd>
+        <dt>Pentadecathlon</dt><dd>A bar that cycles through 15 shapes before repeating.</dd>
+        <dt>R-pentomino</dt><dd>Just 5 squares, but it churns for over a thousand generations before settling.</dd>
+        <dt>Acorn</dt><dd>7 squares that grow into a sprawling colony with several gliders.</dd>
+        <dt>Diehard</dt><dd>Busy for exactly 130 generations, then disappears completely (on a big enough grid).</dd>
+      </dl>
+
+      <h3>Things to try</h3>
+      <ul>
+        <li>Draw a straight line of 3 squares: it becomes a <b>blinker</b>, flipping between flat and upright.</li>
+        <li>Draw a 2 × 2 square: a <b>block</b> never changes.</li>
+        <li>Fire the glider gun on a small grid and watch the gliders wrap around and crash into it.</li>
+      </ul>
+      <p style="margin-top:12px;color:var(--muted);font-size:.82rem">Invented by mathematician John Conway in 1970.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+const $=id=>document.getElementById(id);
+const cv=$('c'), ctx=cv.getContext('2d');
+const store={get(k,d){try{const v=localStorage.getItem('lifegrid.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('lifegrid.'+k,JSON.stringify(v))}catch(e){}}};
+const SIZES=[16,20,24,30,40,50,64,80,100,120];
+let sizeIdx=Math.min(SIZES.length-1,Math.max(0,store.get('size',4)));
+let cols, rows, cell, W, H;
+let grid, next, age;               // grid: 1 = alive; age: generations alive (for color)
+let gen=0, running=false, rate=+store.get('speed',10), acc=0;
+
+// ---------- grid ----------
+function makeGrid(keep){
+  const st=$('stage').getBoundingClientRect();
+  const oc=cols, or=rows, old=grid;
+  cols=SIZES[sizeIdx];
+  rows=Math.max(8,Math.round(cols*st.height/Math.max(1,st.width)));
+  cell=Math.max(2,Math.floor(Math.min(st.width/cols, st.height/rows)));
+  W=cell*cols; H=cell*rows;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr; cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  grid=new Uint8Array(cols*rows); next=new Uint8Array(cols*rows); age=new Uint16Array(cols*rows);
+  if(keep && old){ // re-center the old pattern on the new grid
+    const dx=((cols-oc)/2)|0, dy=((rows-or)/2)|0;
+    for(let y=0;y<or;y++) for(let x=0;x<oc;x++) if(old[y*oc+x]){ const nx=x+dx, ny=y+dy; if(nx>=0&&nx<cols&&ny>=0&&ny<rows) grid[ny*cols+nx]=1; }
+  }
+  $('sizeVal').textContent=cols;
+  $('smaller').disabled=sizeIdx===0; $('bigger').disabled=sizeIdx===SIZES.length-1;
+}
+const idx=(x,y)=>((y+rows)%rows)*cols+((x+cols)%cols);
+
+// ---------- the rules ----------
+function step(){
+  for(let y=0;y<rows;y++){
+    const yu=((y-1+rows)%rows)*cols, ym=y*cols, yd=((y+1)%rows)*cols;
+    for(let x=0;x<cols;x++){
+      const xl=(x-1+cols)%cols, xr=(x+1)%cols;
+      const n=grid[yu+xl]+grid[yu+x]+grid[yu+xr]+grid[ym+xl]+grid[ym+xr]+grid[yd+xl]+grid[yd+x]+grid[yd+xr];
+      const i=ym+x, alive=grid[i];
+      const live = alive ? (n===2||n===3) : (n===3);   // survive on 2 or 3, born on exactly 3
+      next[i]=live?1:0;
+      age[i]= live ? (alive? Math.min(age[i]+1,999) : 0) : 0;
+    }
+  }
+  [grid,next]=[next,grid];
+  gen++; stats();
+}
+function stats(){ let a=0; for(let i=0;i<grid.length;i++) a+=grid[i]; $('gen').textContent=gen; $('alive').textContent=a; }
+
+// ---------- drawing ----------
+function color(a){
+  // newborn mint, fading to teal then deep blue as cells age
+  const t=Math.min(1,a/40);
+  const r=Math.round(111+(40-111)*t), g=Math.round(240+(120-240)*t), b=Math.round(194+(220-194)*t);
+  return `rgb(${r},${g},${b})`;
+}
+function draw(){
+  ctx.fillStyle='#0d151a'; ctx.fillRect(0,0,W,H);
+  if(cell>=6){ // faint grid lines when cells are big enough
+    ctx.strokeStyle='rgba(142,163,166,.08)'; ctx.lineWidth=1; ctx.beginPath();
+    for(let x=1;x<cols;x++){ ctx.moveTo(x*cell+.5,0); ctx.lineTo(x*cell+.5,H); }
+    for(let y=1;y<rows;y++){ ctx.moveTo(0,y*cell+.5); ctx.lineTo(W,y*cell+.5); }
+    ctx.stroke();
+  }
+  const pad=cell>=6?1:0, r=cell>=10?cell*.2:0;
+  for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+    const i=y*cols+x; if(!grid[i]) continue;
+    ctx.fillStyle=color(age[i]);
+    if(r){ rr(x*cell+pad,y*cell+pad,cell-pad*2,cell-pad*2,r); ctx.fill(); }
+    else ctx.fillRect(x*cell+pad,y*cell+pad,cell-pad*2,cell-pad*2);
+  }
+}
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---------- drawing cells by hand ----------
+let paint=null;
+function cellAt(e){ const b=cv.getBoundingClientRect(); return [Math.floor((e.clientX-b.left)/cell), Math.floor((e.clientY-b.top)/cell)]; }
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  const [x,y]=cellAt(e); if(x<0||y<0||x>=cols||y>=rows) return;
+  const i=y*cols+x; paint=grid[i]?0:1;        // first square decides: draw or erase
+  grid[i]=paint; age[i]=0; paint={v:paint,last:i};
+  try{cv.setPointerCapture(e.pointerId)}catch(_){}
+  stats(); draw();
+});
+cv.addEventListener('pointermove',e=>{
+  if(!paint) return;
+  const [x,y]=cellAt(e); if(x<0||y<0||x>=cols||y>=rows) return;
+  const i=y*cols+x; if(i===paint.last) return;
+  paint.last=i; grid[i]=paint.v; age[i]=0; stats(); draw();
+});
+const endPaint=()=>{ paint=null; };
+cv.addEventListener('pointerup',endPaint); cv.addEventListener('pointercancel',endPaint);
+
+// ---------- patterns ----------
+const PATTERNS={
+  glider:[".O.","..O","OOO"],
+  lwss:[".O..O","O....","O...O","OOOO."],
+  gun:[
+"........................O...........",
+"......................O.O...........",
+"............OO......OO............OO",
+"...........O...O....OO............OO",
+"OO........O.....O...OO..............",
+"OO........O...O.OO....O.O...........",
+"..........O.....O.......O...........",
+"...........O...O....................",
+"............OO......................"],
+  pulsar:[
+"..OOO...OOO..",
+".............",
+"O....O.O....O",
+"O....O.O....O",
+"O....O.O....O",
+"..OOO...OOO..",
+".............",
+"..OOO...OOO..",
+"O....O.O....O",
+"O....O.O....O",
+"O....O.O....O",
+".............",
+"..OOO...OOO.."],
+  pentadecathlon:["..O....O..","OO.OOOO.OO","..O....O.."],
+  rpent:[".OO","OO.",".O."],
+  acorn:[".O.....","...O...","OO..OOO"],
+  diehard:["......O.","OO......",".O...OOO"]
+};
+function stamp(name){
+  const p=PATTERNS[name]; if(!p) return;
+  const h=p.length, w=p[0].length;
+  if(w>cols||h>rows){ // grow the grid so the pattern fits
+    while(sizeIdx<SIZES.length-1 && SIZES[sizeIdx]<w+4) sizeIdx++;
+    store.set('size',sizeIdx); makeGrid(true);
+  }
+  const ox=((cols-w)/2)|0, oy=((rows-h)/2)|0;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(p[y][x]==='O'){ const i=idx(ox+x,oy+y); grid[i]=1; age[i]=0; }
+  stats(); draw();
+}
+
+// ---------- controls ----------
+function setRunning(v){ running=v; $('playBtn').textContent=v?'Pause':'Play'; }
+$('playBtn').onclick=()=>setRunning(!running);
+$('stepBtn').onclick=()=>{ setRunning(false); step(); draw(); };
+$('speed').value=rate; $('speedVal').textContent=rate+'/s';
+$('speed').oninput=e=>{ rate=+e.target.value; $('speedVal').textContent=rate+'/s'; store.set('speed',rate); };
+$('randBtn').onclick=()=>{ for(let i=0;i<grid.length;i++){ grid[i]=Math.random()<.28?1:0; age[i]=0; } gen=0; stats(); draw(); };
+$('clearBtn').onclick=()=>{ grid.fill(0); age.fill(0); gen=0; setRunning(false); stats(); draw(); };
+$('pattern').onchange=e=>{ stamp(e.target.value); e.target.value=''; };
+$('smaller').onclick=()=>{ if(sizeIdx>0){ sizeIdx--; store.set('size',sizeIdx); makeGrid(true); stats(); draw(); } };
+$('bigger').onclick=()=>{ if(sizeIdx<SIZES.length-1){ sizeIdx++; store.set('size',sizeIdx); makeGrid(true); stats(); draw(); } };
+const openHelp=()=>{ $('helpSheet').hidden=false; $('helpClose').focus(); };
+const closeHelp=()=>{ $('helpSheet').hidden=true; $('helpBtn').focus(); };
+$('helpBtn').onclick=openHelp;
+$('helpClose').onclick=closeHelp;
+$('helpSheet').addEventListener('click',e=>{ if(e.target.id==='helpSheet') closeHelp(); });
+addEventListener('keydown',e=>{
+  if(!$('helpSheet').hidden){ if(e.key==='Escape') closeHelp(); return; }
+  if(e.key==='?'){ openHelp(); return; }
+  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return;
+  if(e.key===' '){ e.preventDefault(); setRunning(!running); }
+  else if(e.key==='s'||e.key==='S'||e.key==='ArrowRight'){ setRunning(false); step(); draw(); }
+});
+let rt=0; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(()=>{ makeGrid(true); draw(); },150); });
+
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000); last=now;
+  if(running){ acc+=dt*rate; let n=0; while(acc>=1 && n<8){ step(); acc-=1; n++; } if(acc>1) acc=0; }
+  draw(); requestAnimationFrame(frame);
+}
+
+// start with a lively random soup plus a glider so something is moving right away
+makeGrid(false);
+for(let i=0;i<grid.length;i++) grid[i]=Math.random()<.22?1:0;
+stats(); setRunning(true);
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
